@@ -75,6 +75,15 @@ class SorbiConnect{
 		
 		// add action for the finished upgrader process
 		add_action( 'upgrader_process_complete', array( $this, 'after_update' ), 10, 2 );
+		
+		// listener for plugin activation
+		add_action( 'activated_plugin', array( $this, 'after_update' ), 10, 2 );
+		
+		// listener for plugin de-activation
+		add_action( 'deactivated_plugin', array( $this, 'after_update' ), 10, 2 );
+		
+		// listener for theme switch
+		add_action( 'after_switch_theme', array( $this, 'after_update' ) );
 	}
 	
 	public function scan_dir( $dirname ){
