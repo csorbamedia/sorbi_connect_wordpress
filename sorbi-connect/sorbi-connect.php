@@ -53,7 +53,7 @@ function sorbi_endpoint($request){
 		// loop the results
 		if( $version_call && isset( $version_call->summary ) && count( $version_call->summary ) > 0 ){
 			
-			$return['success']['updates'] = $version_call->summary;
+			$return['success']['data'] = $version_call->summary;
 			
 			// define the expiration in seconds
 			$site_key_expiration = (int) $version_call->valid_until;
