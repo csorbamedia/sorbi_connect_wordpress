@@ -395,29 +395,18 @@ class SorbiConnect{
 				// overwrite site_secret
 				$this->site_secret = $valid->site_secret ? $valid->site_secret  : __('Oops! Something went wrong.');
 				
-				// define the expiration in seconds
-				$this->site_key_expiration = (int) $valid->valid_until;
-				
 				// set the success message including expiration
-				if($valid->valid === 1){
-					$this->messages['success'][] = sprintf( __("Your SORBI site key '{$this->site_key}' is active until %s (last check %s)", SORBI_TD ), date( $this->datetimeformat, $this->site_key_expiration ), date( $this->datetimeformat, time() ) );
-				}else{
-					if($this->site_secret != ''){
-						$this->messages['success'][] = sprintf( __("Copy the site secret key and")) . ' ' . sprintf('<a href="https://panel.sorbi.com/?tmp_key=%s">'.__('click here!').'</a>', $valid->tmp_key);
-					}
+				if($this->site_secret != ''){
+					$this->messages['success'][] = sprintf( __("Copy the site secret key and")) . ' ' . sprintf('<a href="https://panel.sorbi.com/?tmp_key=%s">'.__('click here!').'</a>', $valid->tmp_key);
+					
+					// update the site_secret
+					update_option( $this->site_secret_option_name, $this->site_secret );
 				}
-				
-				
-				// update the expiration date
-				update_option( $this->site_key_expiration_option_name, $this->site_key_expiration );
-				
-				// update the site_secret
-				update_option( $this->site_secret_option_name, $this->site_secret );
 								
 			}
 			
 		}else{
-			// we hav an empty key
+			// we have an empty key
 			$this->messages['error'][] = __("Your SORBI Connect site key can not be empty.", SORBI_TD );
 		}
 		

@@ -52,14 +52,31 @@ function sorbi_endpoint($request){
 				
 		// loop the results
 		if( $version_call && isset( $version_call->summary ) && count( $version_call->summary ) > 0 ){
+			
 			$return['success']['updates'] = $version_call->summary;
+			
+			// define the expiration in seconds
+			$site_key_expiration = (int) $version_call->valid_until;
+			$site_key = $version_call->site_key;
+			
+			$messages['success'][] = sprintf( __("Your SORBI site key '{$site_key}' is actived until %s (last check %s)", SORBI_TD ), date( $sorbi->datetimeformat, $site_key_expiration ), date( $sorbi->datetimeformat, time() ) );
+			
+			$return['success']['valid_until'] = date( $sorbi->datetimeformat, $site_key_expiration );
+				
+			// update the expiration date
+			update_option( 'sorbi_site_key_expiration' , $site_key_expiration );
+			
+			// save the messages 
+			update_option( 'sorbi_messages', (array) $messages );
+			
+			
 		}
 	
 	}
 	
 	// If core files have been changed, we need to push the information to SORBI
 	if($file_changes){
-		$return['core_integrity'] = $file_changes;
+		//$return['core_integrity'] = $file_changes;
 	}
 	
 	return $return;
