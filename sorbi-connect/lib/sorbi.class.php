@@ -11,7 +11,7 @@ class SorbiConnect{
 	
 	// api 
 	protected $version							= 'v1';
-	protected $api_uri							= 'http://api.sorbi.com/%s/%s';
+	protected $api_uri							= 'https://api.sorbi.com/%s/%s';
 	protected $timeout							= 30;
 	
 	// protected variables
@@ -25,6 +25,7 @@ class SorbiConnect{
 	protected $sorbi_options_section			= 'sorbi_option_section';
 	protected $site_key_option_name 			= 'sorbi_site_key';
 	protected $site_key_expiration_option_name 	= 'sorbi_site_key_expiration';
+	protected $site_secret_option_name 			= 'sorbi_site_secret';
 	
 	public function __construct(){
 		
@@ -45,6 +46,9 @@ class SorbiConnect{
 		
 		// site key expiration
 		$this->site_key_expiration = get_option( $this->site_key_expiration_option_name, false );
+		
+		// site secret
+		$this->site_secret = get_option( $this->site_secret_option_name , false );
 		
 		// get the messages 
 		$this->messages = get_option( $this->sorbi_message_option_name, array() );
@@ -84,6 +88,10 @@ class SorbiConnect{
 		
 		// listener for theme switch
 		add_action( 'after_switch_theme', array( $this, 'after_update' ) );
+		
+		// Add API listener
+		add_action( 'rest_api_init', array( $this, 'sorbi_api_endpoint' ) );
+		
 	}
 	
 	public function scan_dir( $dirname ){
@@ -241,9 +249,15 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function sorbi_backend_head(){
+		
+		$show = ($this->site_secret != '') ? 'display:block !important' : '';
+		
 		?>
 		<style>
-		#sorbi_site_key{min-width:320px;}
+		#sorbi_site_key,
+		#sorbi_site_secret{min-width:320px; font-size: 22px; color: #8a8a8a; padding: 7px; }
+		#sorbi_site_secret{ <?php echo $show; ?> }
+		.toplevel_page_sorbi-connect .form-table th{ padding: 0px !important; width: 0px !important; }
 		.sorbi-notice{
 			padding-left: 50px;
 			color:#fff;
@@ -253,6 +267,22 @@ class SorbiConnect{
 		</style>
 		<?php
 	}
+	
+	/**
+	 * Register SORBI api endpoint
+	 * hooked on init
+	 *
+	 * @return void
+	 **/
+	public function sorbi_api_endpoint(){
+		
+		register_rest_route( 'sorbi/v1', '/get_informations/site_key=(?P<site_key>[a-zA-Z0-9-]+)/site_secret=(?P<site_secret>[a-zA-Z0-9-./$]+)', array(
+			'methods'  => WP_REST_Server::READABLE,
+			'callback' => 'sorbi_endpoint'
+		  ) );
+		
+	}
+	
 	
 	/**
 	 * The notify function will show admin notices if we have them
@@ -295,7 +325,7 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function validate_site_key( $site_key, $manual = true ){
-		
+				
 		// only execute on wp-admin
 		if( !$this->is_admin ) return;
 		
@@ -336,9 +366,10 @@ class SorbiConnect{
 				$valid = self::sorbi_api_call( 
 					'activate/key',
 					array( 
-						'site_key' 	=> $site_key,
-						'method'	=> 'file',
-						'path'		=> $fileurl
+						'site_key' 				=> $site_key,
+						'method'				=> 'file',
+						'path'					=> $fileurl,
+						'activation_type'		=> 1
 					)
 				);
 			}
@@ -348,39 +379,41 @@ class SorbiConnect{
 				$valid = self::sorbi_api_call( 
 					'activate/key',
 					array( 
-						'site_key' 	=> $site_key,
-						'method'	=> 'meta'
+						'site_key' 				=> $site_key,
+						'method'				=> 'meta',
+						'activation_type'		=> 1
 					)
 				);
 			}
 			
 			// finaly, we save the valid until
-			if( $valid && (int) $valid->valid === 1 ){
-				
+			if( $valid && (int) $valid->activated_website === 1 ){
+								
 				// overwrite site key 
 				$this->site_key = $site_key;
+				
+				// overwrite site_secret
+				$this->site_secret = $valid->site_secret ? $valid->site_secret  : __('Oops! Something went wrong.');
 				
 				// define the expiration in seconds
 				$this->site_key_expiration = (int) $valid->valid_until;
 				
 				// set the success message including expiration
-				$this->messages['success'][] = sprintf( __("Your SORBI site key '{$this->site_key}' is active until %s (last check %s)", SORBI_TD ), date( $this->datetimeformat, $this->site_key_expiration ), date( $this->datetimeformat, time() ) );
+				if($valid->valid === 1){
+					$this->messages['success'][] = sprintf( __("Your SORBI site key '{$this->site_key}' is active until %s (last check %s)", SORBI_TD ), date( $this->datetimeformat, $this->site_key_expiration ), date( $this->datetimeformat, time() ) );
+				}else{
+					if($this->site_secret != ''){
+						$this->messages['success'][] = sprintf( __("Copy the site secret key and")) . ' ' . sprintf('<a href="https://panel.sorbi.com/?tmp_key=%s">'.__('click here!').'</a>', $valid->tmp_key);
+					}
+				}
+				
 				
 				// update the expiration date
 				update_option( $this->site_key_expiration_option_name, $this->site_key_expiration );
 				
-				// if success and manul, we send the versions 
-				if( $manual ){
-					
-					// try to get all the versions
-					$versions = self::list_versions();
-					
-					// if we have versions, push it to SORBI
-					if( $versions ){
-						self::update_versions( $versions );
-					}
-		
-				}
+				// update the site_secret
+				update_option( $this->site_secret_option_name, $this->site_secret );
+								
 			}
 			
 		}else{
@@ -404,17 +437,17 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function admin_init(){
-		
+				
 		// if we have no key
-		if( !$this->site_key || (string) $this->site_key === '' ){
-			$this->messages['info'][] = sprintf( __("Please add your SORBI Connect site key. If you don't have a key, <a href='%s' target='_blank'>get one here!</a>", SORBI_TD ), 'http://www.sorbi.com' );
-		
+		if( !$this->site_key || (string) $this->site_key == '' ){
+			$this->messages['info'][] = sprintf( __("Please add your SORBI Connect site key. If you don't have a key, <a href='%s' target='_blank'>get one here!</a>", SORBI_TD ), 'https://www.sorbi.com' );
 		}else{
 			
 			// we do have a key, if it's expired, we force to auto check if it is valid 
 			if( time() > $this->site_key_expiration ){
-				self::validate_site_key( $this->site_key , false );
+				self::validate_site_key( $this->site_key, false );
 			}
+			
 		}
 		
 		register_setting(
@@ -432,12 +465,25 @@ class SorbiConnect{
 		
 		add_settings_field(
             $this->site_key_option_name, // ID
-            'SORBI Site key', // Title 
+            '', // Title 
             array( $this, 'site_key_callback' ), // Callback
             $this->pagename, // Page     
 			$this->sorbi_options_section,
 			array(
-				'name' => $this->site_key_option_name
+				'name' => $this->site_key_option_name,
+				'placeholder' => __('Paste the key here ...')
+			)
+        );
+		
+		add_settings_field(
+            $this->site_secret_option_name, // ID
+            '', // Title 
+            array( $this, 'site_secret_callback' ), // Callback
+            $this->pagename, // Page     
+			$this->sorbi_options_section,
+			array(
+				'name' => $this->site_secret_option_name,
+				'placeholder' => __('Your secret key')
 			)
         );
 		
@@ -458,8 +504,17 @@ class SorbiConnect{
 	 * @return void
      */
     public function site_key_callback( $args ){
-        printf('<input type="text" id="%s" name="%s" value="%s" />', $args['name'], $args['name'], ( $this->site_key ? esc_attr( $this->site_key ) : '' )  );
+        printf('<input type="text" id="%s" name="%s" value="%s" placeholder="%s" />', $args['name'], $args['name'], ( $this->site_key ? esc_attr( $this->site_key ) : '' ), $args['placeholder']  );
     }
+	
+	/** 
+     * Get the site secret and print its value in the input
+	 *
+	 * @return void
+     */
+	public function site_secret_callback( $args ){
+			printf('<input type="text" id="%s" name="%s" value="%s" placeholder="%s" style="display:none;" />', $args['name'], $args['name'], ( $this->site_secret ? esc_attr( $this->site_secret ) : '' ), $args['placeholder'] );
+	}
 	
 	/**
 	 * Create the settings page menu item for SORBI Connect
@@ -535,9 +590,10 @@ class SorbiConnect{
 	private function update_versions( $versions ){
 		
 		// set args
-		$args['site_key'] 	= $this->site_key;
-		$args['platform'] 	= $this->platform;
-		$args['versions'] 	= (array) $versions;
+		$args['site_key'] 		= $this->site_key;
+		$args['site_secret'] 	= $this->site_secret;
+		$args['platform'] 		= $this->platform;
+		$args['versions'] 		= (array) $versions;
 		
 		// call the SORBI API
 		$version_call = self::sorbi_api_call( 'versions', $args, 'POST', true );
