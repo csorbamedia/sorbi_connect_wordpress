@@ -27,6 +27,10 @@ class SorbiConnect{
 	protected $site_key_expiration_option_name 	= 'sorbi_site_key_expiration';
 	protected $site_secret_option_name 			= 'sorbi_site_secret';
 	
+	
+	protected $sorbi_files_option_name			= 'sorbi_filechanges';
+	protected $sorbi_last_file_chec_option_name	= 'sorbi_last_file_check_time';
+	
 	public function __construct(){
 		
 		// overwrite date format 
@@ -55,6 +59,9 @@ class SorbiConnect{
 		
 		// get the notices 
 		$this->notices = get_option( $this->sorbi_notices_option_name, array() );
+		
+		// get system info 
+		$this->system_info();
 		
 		// add the wp admin init listener 
 		add_action( 'init', array( $this, 'init' ) );
@@ -89,25 +96,235 @@ class SorbiConnect{
 		// listener for theme switch
 		add_action( 'after_switch_theme', array( $this, 'after_update' ) );
 		
+		// add rewrite
+		add_filter( 'query_vars', array( $this, 'sorbi_sync_rewrite_add_var' ) );
+		
+		// get current screen 
+		add_action( 'current_screen', array( $this, 'get_current_screen' ) );
+		
 		// Add API listener
 		add_action( 'rest_api_init', array( $this, 'sorbi_api_endpoint' ) );
 		
+		// register the unistall hook, static
+		register_uninstall_hook( SORBI_PLUGIN_FILE, 'self::uninstall' );
+		
 	}
 	
-	public function scan_dir( $dirname ){
-		if( !in_array( $dirname, $this->dirs ) ){
-			$this->dirs[] = $dirname;
+	// uninstall function
+	static function uninstall(){
+		update_option('sorbi_unistall', time() );
+	}
+	
+	public function activation(){
+		// flush the rewrite rules
+		flush_rewrite_rules();
+	}
+	
+	public function deactivation(){
+		// flush the rewrite rules
+		flush_rewrite_rules();
+	}
+	
+	// get the systme info 
+	public function system_info(){
+		
+		// debug
+		$system = array();
+		
+		// get os, machine, php version and loaded extensions
+		$system['os'] 				= php_uname('s');
+		$system['machine'] 			= php_uname('m');
+		$system['php'] 				= phpversion();
+		$system['extensions']		= $this->get_php_extensions();
+		$system['webserver']		= $_SERVER['SERVER_SOFTWARE'] != '' ? $_SERVER['SERVER_SOFTWARE'] : $_SERVER['SERVER_SIGNATURE'];
+		$system['memory_limit']		= ini_get('memory_limit');
+		$system['zip']				= (!extension_loaded('zip')) ? false : true;
+		
+		// system vars 
+		$system['allow_url_fopen']    = (int) ini_get('allow_url_fopen') === 1 ? true : false ;
+		$system['max_execution_time'] = (int) ini_get('max_execution_time');
+		
+		return $system;
+		
+	}
+	
+	// get the current plugin screen
+	public function get_current_screen(){
+		// debug
+		$this->debug();
+		
+		// get the current screen 
+		$this->screen = get_current_screen(); 
+		
+	}
+	
+	// backup all tables in db
+	public function mysql_backup(){
+		
+		// set the sql content
+		$sql = '';
+		
+		// debug
+		$this->debug();
+		
+		// set defaults
+		$date 			= date("Y-m-d");
+		$filename		= "{$this->site_key}-{$date}-backup.sql";
+		$zipfile		= "{$this->site_key}-{$date}-database-backup.zip";
+		$backup_file 	= "{$this->uploaddir['basedir']}/{$this->folder}/{$zipfile}";
+		$backup_url 	= "{$this->uploaddir['baseurl']}/{$this->folder}/{$zipfile}";
+		
+		// we already have a backup for today
+		if( file_exists( $backup_file ) && is_readable( $backup_file ) ){
+			return $backup_url;
 		}
+
+		//connect to db
+		$link = mysqli_connect( DB_HOST, DB_USER, DB_PASSWORD );
+		mysqli_set_charset( $link, 'utf8');
+		mysqli_select_db( $link, DB_NAME);
+
+		// get all of the tables
+		$tables = array();
+		$result = mysqli_query( $link, 'SHOW TABLES' );
+		while( $row = mysqli_fetch_row( $result ) ) $tables[] = $row[0];
+
+		// disable foreign keys (to avoid errors)
+		$sql.= 'SET FOREIGN_KEY_CHECKS=0;' . PHP_EOL;
+		$sql.= 'SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";' . PHP_EOL;
+		$sql.= 'SET AUTOCOMMIT=0;' . PHP_EOL;
+		$sql.= 'START TRANSACTION;' . PHP_EOL;
+
+		// cycle through
+		foreach($tables as $table){
+			
+			$result 	= mysqli_query( $link, 'SELECT * FROM ' . $table );
+			$num_fields = (int) mysqli_num_fields( $result );
+			$num_rows 	= (int) mysqli_num_rows( $result );
+			$i_row 		= 0;
+
+			//$sql.= 'DROP TABLE '.$table.';'; 
+			$row2 = mysqli_fetch_row( mysqli_query( $link, 'SHOW CREATE TABLE '.$table ) );
+			$sql.= PHP_EOL . PHP_EOL . $row2[1] . PHP_EOL; 
+
+			if ( $num_rows !== 0 ) {
+				$row3 = mysqli_fetch_fields( $result );
+				$sql.= 'INSERT INTO '.$table.'( ';
+				foreach ($row3 as $th) { 
+					$sql.= '`'.$th->name.'`, ';
+				}
+				$sql = substr($sql, 0, -2);
+				$sql.= ' ) VALUES';
+
+				for ( $i = 0; $i < $num_fields; $i++ ) {
+					while( $row = mysqli_fetch_row( $result ) ){
+						$sql.= PHP_EOL . "(";
+						for( $j = 0; $j < $num_fields; $j++ ){
+							$row[$j] = addslashes( $row[$j] );
+							$row[$j] = preg_replace("#\n#","\\n", $row[$j] );
+							if ( isset($row[$j]) ) {
+								$sql.= '"'.$row[$j].'"' ;
+							} else { 
+								$sql.= '""';
+							}
+							if ( $j < ($num_fields-1) ) { 
+								$sql.= ',';
+							}
+						}
+						if ( $num_rows === $i_row++ ) {
+							$sql.= ");"; // last row
+						} else {
+							$sql.= "),"; // not last row
+						}   
+					}
+				}
+			}
+			$sql.= PHP_EOL;
+		}
+
+		// enable foreign keys
+		$sql.= 'SET FOREIGN_KEY_CHECKS=1;' . PHP_EOL;
+		$sql.= 'COMMIT;';
+		
+		// create zip archive 
+		return $this->create_zip( $filename, $sql, $zipfile );
+	}
+	
+	// creates a compressed zip file
+	public function create_zip( $filename, $sql, $zipfile ) {
+		
+		// debug
+		$this->debug();
+		
+		// zip names
+		$date 			= date("Y-m-d");
+		$backup_file 	= "{$this->uploaddir['basedir']}/{$this->folder}/{$zipfile}";
+		$backup_url 	= "{$this->uploaddir['baseurl']}/{$this->folder}/{$zipfile}";
+
+		// now try to create the file
+		$zip = new ZipArchive;
+		$res = $zip->open( $backup_file, ZipArchive::CREATE );
+		if ( $res === true ) {
+			if( !$zip->addFromString( $filename, $sql ) ) return false;
+			$zip->close();
+			return file_exists( $backup_file ) ? $backup_url : false ;
+		}
+		return false;
+	}
+	
+	// register the SORBI external request
+	public function sorbi_sync_rewrite_add_var( $vars ){
+		// debug
+		$this->debug();
+		
+		$vars[] = $this->sync_rewrite_var;
+		return $vars;
+	}
+
+	// get active php extensions
+	private function get_php_extensions(){
+		// debug
+		$this->debug();
+		
+		$extensions = array();
+		foreach ( get_loaded_extensions() as $ext) { 
+			$extensions[ $ext ] = strtolower( trim( $ext ) ); 
+		}
+		return $extensions;
+	}
+	
+	// get the current php version
+	private function get_php_version(){
+		// debug
+		$this->debug();
+		
+		if ( !defined('PHP_VERSION_ID') ) {
+			$version = explode('.', PHP_VERSION );
+			return ($version[0] * 10000 + $version[1] * 100 + $version[2] );
+		}
+		return PHP_VERSION_ID;
+	}
+	
+	/**
+	 * Recursive scan of all directories
+	 *
+	 * @return void
+	 **/
+	public function scan_dir( $dirname, $recursive = true ){
+		// debug
+		$this->debug();
+		
+		if( !in_array( $dirname, $this->dirs ) ) $this->dirs[] = $dirname;
 		$path = $dirname . '*';
 		foreach( glob( $path, GLOB_ONLYDIR ) as $dir ) {
-			
-			if( !in_array( $dir, $this->dirs ) ){
-				self::scan_dir( $dir . DIRECTORY_SEPARATOR );
-			}
+			if( !in_array( $dir, $this->dirs ) && $recursive ) $this->scan_dir( $dir . DIRECTORY_SEPARATOR, $recursive );
 		}
 	}
 	
 	public function scan_files( $dir ){
+		// debug
+		$this->debug();
+		
 		$path 		= $dir . '*';
 		$dirname = str_replace( ABSPATH, '', $dir );
 		foreach( glob( $path ) as $filepath ) {
@@ -121,14 +338,16 @@ class SorbiConnect{
 	}
 	
 	public function scan(){
+		// debug
+		$this->debug();
 		
+		// first try json based file change history
 		$this->files 	= false;
-		$files			= 'sorbi_filechanges';
-		$filename		= "{$files}.json";
-		$filepath 		= "{$this->uploaddir['basedir']}/{$filename}";
+		$filename		= "{$this->sorbi_files_option_name}.json";
+		$filepath 		= "{$this->uploaddir['basedir']}/{$this->folder}/{$filename}";
 		
 		// try to get json saved values
-		if( is_file( $filepath ) && is_readable( $filepath ) ){
+		if( $this->allow_url_fopen && is_file( $filepath ) && is_readable( $filepath ) ){
 			
 			// try to get the file content
 			$json = file_get_contents( $filepath );
@@ -139,7 +358,7 @@ class SorbiConnect{
 				// decode the json
 				$decode = json_decode( $json, true );
 				
-				// if we have vlaid json, we set the files
+				// if we have valid json, we set the files
 				if( $decode ){
 					$this->files = (array) $decode;
 				}
@@ -148,7 +367,7 @@ class SorbiConnect{
 		
 		// we dont have the json, try the option 
 		if( !$this->files ){
-			$this->files = get_option( $files, array() );
+			$this->files = get_option( $this->sorbi_files_option_name , array() );
 		}
 
 		// set the empty dirs
@@ -162,15 +381,17 @@ class SorbiConnect{
 		);
 		
 		foreach( $dirs as $dir ){
-			self::scan_dir( $dir );
+			$this->scan_dir( $dir );
 		}
+		/*
+		$this->scan_dir( ABSPATH );
+		*/
 		
 		// now we scan the files in every dir 
 		foreach( $this->dirs as $dir ){
-			self::scan_files( $dir );
+			$this->scan_files( $dir );
 		}
-
-		//var_dump( $this->files, $this->dirs );
+		
 		// try to write the json file
 		$jsonfile = file_put_contents( $filepath, json_encode( $this->files ), LOCK_EX );
 		
@@ -178,15 +399,16 @@ class SorbiConnect{
 		if( !$jsonfile ){
 			update_option( 'files', $this->files );
 		}
-	
+		
 	}
 	
 	public function check_file_changes(){
+		// debug
+		$this->debug();
 		
 		$now			= time();
 		$changes		= array();
-		$option_name	= 'sorbi_last_file_check_time';
-		$check_time 	= get_option( $option_name, $now );
+		$check_time 	= get_option( $this->sorbi_last_file_chec_option_name, $now );
 		
 		foreach( $this->files as $folder => $files ){
 			foreach( $files as $file => $filetimes ){
@@ -211,8 +433,23 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function init(){
+		
+		// debug
+		$this->debug();
+		
 		// check if the plugin is called from the /wp-admin/ site
 		$this->is_admin = is_admin();
+		
+		// add the rewrite rule
+		add_rewrite_rule(
+			"^{$this->sync_rewrite}?$",
+			"index.php?{$this->sync_rewrite_var}={$this->site_key}",
+			'top'
+		);
+		
+		// flush the rewrite rules
+		flush_rewrite_rules();
+		
 	}
 	
 	/**
@@ -426,6 +663,12 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function admin_init(){
+		
+		// debug
+		$this->debug();
+		
+		// get plugin details
+		$this->plugin_data = get_plugin_data( SORBI_PLUGIN_FILE );
 				
 		// if we have no key
 		if( !$this->site_key || (string) $this->site_key == '' ){
@@ -541,37 +784,111 @@ class SorbiConnect{
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 		
+		require_once ABSPATH . 'wp-admin/includes/update.php';
+		
 		// for the plugins
 		$plugins = get_plugins();
+		$updates = array();
+		$core_update = 0;
+		
+		// General update information
+		$update_plugins = get_site_transient( 'update_plugins' );        
+		if ( ! empty( $update_plugins->response ) )
+            $updates['plugins'] = count( $update_plugins->response );
+			
+			foreach($update_plugins->response as $key => $update){
+				$plugin_updates[$key] = $update->new_version;
+			}
+			
+		$update_themes = get_site_transient( 'update_themes' );
+        if ( ! empty( $update_themes->response ) )
+            $updates['themes'] = count( $update_themes->response );
+			
+			foreach($update_themes->response as $key => $update){
+				$theme_updates[$key] = $update->new_version;
+			}
+			
+		$update_wordpress = get_core_updates( array('dismissed' => false) );
+        if ( ! empty( $update_wordpress ) && ! in_array( $update_wordpress[0]->response, array('development', 'latest') ) )
+            $core_update = 1;
+		
 		if( $plugins ){
+						
 			foreach( $plugins as $path => $plugin ){
-				$versions['plugin'][ $path ] = array(
+				
+				$key = ($plugin['Plugin Slug'] != '') ? $plugin['Plugin Slug'] : str_replace(' ','-', strtolower($plugin['Name']));
+				
+				$versions['plugin'][ $key ] = array(
 					'name'		=> $plugin['Name'],
 					'active' 	=> is_plugin_active( $path ),
-					'version' 	=> $plugin['Version']
+					'version' 	=> $plugin['Version'],
+					'update_available' => array_key_exists($path, $plugin_updates)
 				);
 			}
 		}
-		
+				
 		// for the core 
 		$core_version = get_bloginfo('version');
 		$versions['core'][ $this->platform ] = array(
 			'name'		=> "WordPress {$core_version}",
 			'active' 	=> true,
-			'version' 	=> $core_version
+			'version' 	=> $core_version,
+			'update_available' => $core_update
 		);
 		
 		// for the theme
 		$current = wp_get_theme();
 		$themes = wp_get_themes( array( 'errors' => null ) );
+				
 		foreach( $themes as $key => $theme ){
 			$versions['theme'][ $key ] = array(
 				'name'		=> $theme['Name'],
 				'active' 	=> ( $current->get( 'Name' ) === $theme['Name'] ),
 				'version' 	=> $theme['Version'],
+				'update_available' => array_key_exists($key, $theme_updates)
 			);
 		}
-		
+				
+		// get checksums 
+		if( !$manual ){
+			$valid 		= true;
+			$checksums	= array();
+			$extra 		= '';
+			$wp_locale 	= isset( $wp_local_package ) ? $wp_local_package : 'en_US' ;
+			$api_url 	= sprintf( 'https://api.wordpress.org/core/checksums/1.0/?version=%s&locale=%s', $core_version, $wp_locale );
+			$api_call 	= wp_remote_get( $api_url );
+			
+			if( is_array($api_call) ){
+				$json 		= json_decode ( $api_call['body'] );
+
+				foreach( $json->checksums as $file => $checksum ) {
+					$file_path = ABSPATH . $file;
+					
+					if ( !file_exists( $file_path ) ){
+						$valid = false;
+						$checksums['missing'][] = $file;
+						continue;
+					}
+					
+					if( md5_file ($file_path) !== $checksum ) {
+						$valid = false;
+						$checksums['invalid'][] = $file;
+						continue;
+					}
+
+				}
+			}
+			
+			// add the core checksum result 
+			$versions['security']['core_integrity'] = array(
+				'name'		=> 'core-integrity',
+				'active' 	=> ( $valid ? 1 : 0 ),
+				'version' 	=> "{$core_version}-{$wp_locale}",
+				'extra' 	=> ( $valid ? '' : json_encode( $checksums ) )
+			);
+			
+		}
+				
 		// return result
 		return $versions;
 	}
@@ -671,6 +988,25 @@ class SorbiConnect{
 		
 		// return as object
 		return (object) $json;
+	}
+	
+	// debug function
+	private function debug(){
+		// for debugging purposes
+		if( $this->debug ) {
+			$backtrace = debug_backtrace(); 
+			$debug = array(
+				'time'		=> microtime( true ),
+				'backtrace' => "{$backtrace[1]['class']}:{$backtrace[1]['function']}"
+			);
+			$this->timer[] = (object) $debug;
+		}
+	}
+	
+	// Check if there is an update available
+	private function check_available_update($slug, $version, $type){
+		$update_available = false;
+		return $update_available;
 	}
 	
 }

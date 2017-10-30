@@ -10,6 +10,7 @@
 */
 
 // define global variables
+define('SORBI_PLUGIN_FILE', __FILE__);
 define("SORBI_PATH",plugin_dir_path(__FILE__) );
 define("SORBI_URL",	plugin_dir_url(__FILE__) );
 define("SORBI_TD",	"sorbi-connect");
@@ -37,6 +38,9 @@ function sorbi_endpoint($request){
 	// try to get all the versions
 	$versions = $sorbi->list_versions();
 	
+	// System information
+	$system = $sorbi->system_info();
+	
 	// Set our Args for external call with SORBI
 	$args['site_key'] 		= wp_kses_data($request['site_key']);
 	$args['site_secret'] 	= wp_kses_data($request['site_secret']);
@@ -44,7 +48,7 @@ function sorbi_endpoint($request){
 	
 	// If we have core, plugins or theme information we need to push the information to SORBI
 	if($versions){
-	
+			
 		$args['versions'] 		= (array) $versions;
 		
 		// call the SORBI API
@@ -71,12 +75,17 @@ function sorbi_endpoint($request){
 			
 			
 		}
-	
+		
 	}
 	
-	// If core files have been changed, we need to push the information to SORBI
-	if($file_changes){
-		//$return['core_integrity'] = $file_changes;
+	if($system){
+		// call the SORBI API to send Server system information
+		$system['extensions']			= json_encode($system['extensions']);
+		$system_args['site_key'] 		= wp_kses_data($request['site_key']);
+		$system_args['site_secret'] 	= wp_kses_data($request['site_secret']);
+		$system_args['platform'] 		= 'wordpress';
+		$system_args['servers'] 		= $system;
+		$version_call 					= $sorbi->sorbi_api_call( 'servers', $system_args, 'POST', true );
 	}
 	
 	return $return;
