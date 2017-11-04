@@ -102,10 +102,13 @@ class SorbiConnect{
 		// get current screen 
 		add_action( 'current_screen', array( $this, 'get_current_screen' ) );
 		
-		// Add API listener
-		add_action( 'rest_api_init', array( $this, 'sorbi_api_endpoint' ) );
+		// Add SORBI listener for WP < 4.4
+		add_action( 'init', array( $this, 'sorbi_api_endpoint_v44' ) );
 		
-		// register the unistall hook, static
+		// Add API listener for WP > 4.4
+		add_action( 'rest_api_init', array( $this, 'sorbi_api_endpoint_v45' ) );
+		
+		// register the unistall hook, static for WP > 4.4
 		register_uninstall_hook( SORBI_PLUGIN_FILE, 'self::uninstall' );
 		
 	}
@@ -506,17 +509,34 @@ class SorbiConnect{
 	}
 	
 	/**
-	 * Register SORBI api endpoint
+	 * Register SORBI api endpoint > WP 45
 	 * hooked on init
 	 *
 	 * @return void
 	 **/
-	public function sorbi_api_endpoint(){
+	public function sorbi_api_endpoint_v45(){
 		
 		register_rest_route( 'sorbi/v1', '/get_informations/site_key=(?P<site_key>[a-zA-Z0-9-]+)/site_secret=(?P<site_secret>[a-zA-Z0-9-./$]+)', array(
 			'methods'  => WP_REST_Server::READABLE,
 			'callback' => 'sorbi_endpoint'
 		  ) );
+		
+	}
+	
+	/**
+	 * Register SORBI api endpoint < WP 44
+	 * hooked on init
+	 *
+	 * @return void
+	 **/
+	public function sorbi_api_endpoint_v44(){
+		
+		if(isset($_REQUEST['sorbi_rest_api'])){
+			header("Content-Type: application/json;charset=utf-8");
+			$data = json_encode(sorbi_endpoint($_REQUEST));
+			echo $data;
+			die();
+		}
 		
 	}
 	

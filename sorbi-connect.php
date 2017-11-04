@@ -26,10 +26,19 @@ function sorbi_endpoint($request){
 	
 	$sorbi = new SorbiConnect();
 	
+	// We need to check is site_key and site_secret is in database also
+	$registered_site_key = get_option( 'sorbi_site_key' , false );
+	$registered_site_secret = get_option( 'sorbi_site_secret' , false );
+	
 	// Get our data from the request
 	$return = array();
 	$return['site_key'] = wp_kses_data($request['site_key']);
 	$return['site_secret'] = wp_kses_data($request['site_secret']);
+		
+	// If it does not match with what is in the database of the website
+	if($return['site_key'] != $registered_site_key || $return['site_secret'] != $registered_site_secret){
+		return false;
+	}
 	
 	// Send data to SORBI
 	$sorbi->scan();
