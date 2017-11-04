@@ -504,6 +504,10 @@ class SorbiConnect{
 			background: 10px center no-repeat #2bb298 url('data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTUuMTMgMTA1Ljg3Ij48dGl0bGU+c29yYmkgaWNvbjwvdGl0bGU+PGNpcmNsZSBjeD0iOTEuMTIiIGN5PSI2Ny4yNCIgcj0iMTQuNTkiLz48cGF0aCBkPSJNMTEzLjUyLDc1YTMuODYsMy44NiwwLDAsMSwzLjU2LTMuODRjLTIuNTUtMTYuMzYtMjAuOTQtMjkuNjEtNDUuMjEtMzNsLS4xOS0uMjhjLS43OS0yLjUtNC4yMS00LjUxLTguNjgtNS4yVjIzLjRhOC43NSw4Ljc1LDAsMSwwLTcsLjIydjkuMTdjLTQuMzkuNzMtNy43LDIuNzYtOC40Miw1LjI1bC0uMTMuMTlDMjMuNTYsNDEuNTEsNS4xOSw1NC4zOSwyLjE4LDcwLjM5QTMuODksMy44OSwwLDAsMSw0LjY5LDc0YTMuODQsMy44NCwwLDAsMS0yLjc0LDMuN0M0LDk3LjIxLDI5LjA1LDExMi42Miw1OS41OSwxMTIuNjJjMjkuOTIsMCw1NC41My0xNC44LDU3LjQ5LTMzLjc3QTMuODUsMy44NSwwLDAsMSwxMTMuNTIsNzVaTTkxLjc4LDEwMEgyNi40NmMtMTAuOTQsMC0xOS44LTEwLjYyLTE5LjgtMjQuNDVzOS4wOC0yNC43NSwyMC0yNC43NWMxLjQxLDAsMi4zMy40OCw0LjMzLjgzaDBMNDIuNTcsNTVhNzMuODYsNzMuODYsMCwwLDAsMzYuMjEtLjI2QTIwLDIwLDAsMCwwLDgwLjk1LDU0YzIuMjctLjg4LDYuODYtMi45MiwxMC4xMy0yLjkyLDEwLjk0LDAsMjAuMTYsMTAuNjIsMjAuMTYsMjQuNDVTMTAyLjcyLDEwMCw5MS43OCwxMDBaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMS45NCAtNi43NSkiLz48Y2lyY2xlIGN4PSIyMi43MSIgY3k9IjY3LjI0IiByPSIxNC41OSIvPjwvc3ZnPg==');
 			background-size: 30px auto;
 		}
+		.sorbi-notice p{
+			padding: 1em 0 !important;
+			margin: 0px !important;
+		}
 		</style>
 		<?php
 	}
@@ -978,13 +982,13 @@ class SorbiConnect{
 			'headers'     	=> array(),
 			'body' 			=> $args
 		);
-		
+				
 		// construct api url
 		$url = sprintf( $this->api_uri, $this->version, $action );
 		
 		// execute request
 		$response = wp_remote_post( $url, $call );
-		
+				
 		// wp error check
 		if( is_wp_error( $response ) ){
 			if( !$silent ) $this->messages['error'][] = $response->get_error_message();

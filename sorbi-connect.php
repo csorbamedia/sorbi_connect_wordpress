@@ -29,7 +29,7 @@ function sorbi_endpoint($request){
 	// We need to check is site_key and site_secret is in database also
 	$registered_site_key = get_option( 'sorbi_site_key' , false );
 	$registered_site_secret = get_option( 'sorbi_site_secret' , false );
-	
+
 	// Get our data from the request
 	$return = array();
 	$return['site_key'] = wp_kses_data($request['site_key']);
