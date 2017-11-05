@@ -40,9 +40,9 @@ function sorbi_endpoint($request){
 		return false;
 	}
 	
-	// Send data to SORBI
-	$sorbi->scan();
-	$file_changes = $sorbi->check_file_changes();
+	// Send data to SORBI : deprecated
+	//$sorbi->scan();
+	//$file_changes = $sorbi->check_file_changes();
 	
 	// try to get all the versions
 	$versions = $sorbi->list_versions();
