@@ -596,6 +596,8 @@ class SorbiConnect{
 		// empty the notices
 		$this->notices = array();
 		
+		if(isset($_POST['reset'])) return;
+		
 		// check if the site_key is set
 		if( (string) $site_key !== '' ){
 			
@@ -680,6 +682,24 @@ class SorbiConnect{
 		return $site_key;
 	}
 	
+	
+	/**
+	 * To reset credentials
+	 * 
+	 * @return void
+	 **/
+	public function reset_credentials(){
+		
+		delete_option( $this->sorbi_message_option_name );
+		delete_option( $this->sorbi_notices_option_name );
+		delete_option( $this->site_key_option_name );
+		delete_option( $this->site_key_expiration_option_name );
+		delete_option( $this->site_secret_option_name );
+		
+		return true;
+		
+	}
+	
 	/**
 	 * On admin init we check the site key and expiration
 	 * After we set the setting fields
@@ -699,9 +719,13 @@ class SorbiConnect{
 			$this->messages['info'][] = sprintf( __("Please add your SORBI Connect site key. If you don't have a key, <a href='%s' target='_blank'>get one here!</a>", SORBI_TD ), 'https://www.sorbi.com' );
 		}else{
 			
-			// we do have a key, if it's expired, we force to auto check if it is valid 
-			if( time() > $this->site_key_expiration ){
-				self::validate_site_key( $this->site_key, false );
+			if(isset($_POST['submit'])){
+				// we do have a key, if it's expired, we force to auto check if it is valid 
+				if( time() > $this->site_key_expiration ){
+					self::validate_site_key( $this->site_key, false );
+				}
+			}elseif(isset($_POST['reset'])){
+				self::reset_credentials();
 			}
 			
 		}
@@ -949,6 +973,7 @@ class SorbiConnect{
                 settings_fields( $this->sorbi_options_group );
                 do_settings_sections( $this->pagename );
                 submit_button( __('Validate SORBI site key', SORBI_TD ) );
+				submit_button( __('Clear credentials', SORBI_TD ), 'reset secondary', 'reset' );
             ?>
             </form>
 			
@@ -957,9 +982,9 @@ class SorbiConnect{
 		<pre>
         <?php
 		
-		self::scan();
-		$scan = self::check_file_changes();
-		var_dump( $scan );
+		//self::scan();
+		//$scan = self::check_file_changes();
+		//var_dump( $scan );
 		
 		?>
 		</pre>
