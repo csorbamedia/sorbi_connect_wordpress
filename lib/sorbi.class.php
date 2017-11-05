@@ -972,7 +972,7 @@ class SorbiConnect{
      * @param array $input Contains all settings fields as array keys
      */
 	public function sorbi_api_call( $action = '' , $args = array(), $method = 'POST', $silent = false ){
-		
+				
 		// construct the call
 		$call = array(
 			'method' 		=> $method,
@@ -982,7 +982,7 @@ class SorbiConnect{
 			'headers'     	=> array(),
 			'body' 			=> $args
 		);
-				
+						
 		// construct api url
 		$url = sprintf( $this->api_uri, $this->version, $action );
 		
