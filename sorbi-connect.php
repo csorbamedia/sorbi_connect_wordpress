@@ -92,6 +92,7 @@ function sorbi_endpoint($request){
 		$system['extensions']			= json_encode($system['extensions']);
 		$system_args['site_key'] 		= wp_kses_data($request['site_key']);
 		$system_args['site_secret'] 	= wp_kses_data($request['site_secret']);
+		$system_args['report_key'] 		= wp_kses_data($request['report_key']);
 		$system_args['platform'] 		= 'wordpress';
 		$system_args['servers'] 		= $system;
 		$version_call 					= $sorbi->sorbi_api_call( 'servers', $system_args, 'POST', true );
