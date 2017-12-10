@@ -537,6 +537,9 @@ class SorbiConnect{
 		
 		if(isset($_REQUEST['sorbi_rest_api'])){
 			header("Content-Type: application/json;charset=utf-8");
+			header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+			header("Cache-Control: post-check=0, pre-check=0", false);
+			header("Pragma: no-cache");
 			$data = json_encode(sorbi_endpoint($_REQUEST));
 			echo $data;
 			die();
