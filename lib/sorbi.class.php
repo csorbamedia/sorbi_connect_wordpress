@@ -151,7 +151,11 @@ class SorbiConnect{
 		
 	}
 	
-	// get the current plugin screen
+	/**
+	 * Get the current plugin screen
+	 *
+	 * @return array
+	 **/
 	public function get_current_screen(){
 		// debug
 		$this->debug();
@@ -161,7 +165,12 @@ class SorbiConnect{
 		
 	}
 	
-	// backup all tables in db
+	
+	/**
+	 * Backup all tables in db
+	 *
+	 * @return array
+	 **/
 	public function mysql_backup(){
 		
 		// set the sql content
@@ -253,7 +262,12 @@ class SorbiConnect{
 		return $this->create_zip( $filename, $sql, $zipfile );
 	}
 	
-	// creates a compressed zip file
+	
+	/**
+	 * creates a compressed zip file
+	 *
+	 * @return array
+	 **/
 	public function create_zip( $filename, $sql, $zipfile ) {
 		
 		// debug
@@ -275,7 +289,12 @@ class SorbiConnect{
 		return false;
 	}
 	
-	// register the SORBI external request
+	
+	/**
+	 * Register the SORBI external request
+	 *
+	 * @return array
+	 **/
 	public function sorbi_sync_rewrite_add_var( $vars ){
 		// debug
 		$this->debug();
@@ -284,7 +303,12 @@ class SorbiConnect{
 		return $vars;
 	}
 
-	// get active php extensions
+	
+	/**
+	 * Get active php extensions
+	 *
+	 * @return array
+	 **/
 	private function get_php_extensions(){
 		// debug
 		$this->debug();
@@ -296,7 +320,12 @@ class SorbiConnect{
 		return $extensions;
 	}
 	
-	// get the current php version
+	
+	/**
+	 * Get current php version
+	 *
+	 * @return string
+	 **/
 	private function get_php_version(){
 		// debug
 		$this->debug();
@@ -307,6 +336,7 @@ class SorbiConnect{
 		}
 		return PHP_VERSION_ID;
 	}
+	
 	
 	/**
 	 * Recursive scan of all directories
@@ -405,6 +435,13 @@ class SorbiConnect{
 		
 	}
 	
+	
+	
+	/**
+	 * Check for file changes
+	 *
+	 * @return void
+	 **/
 	public function check_file_changes(){
 		// debug
 		$this->debug();
@@ -429,6 +466,7 @@ class SorbiConnect{
 		return $changes;
 		
 	}
+	
 	
 	/**
 	 * Check if we are on the wp-admin
@@ -455,6 +493,7 @@ class SorbiConnect{
 		
 	}
 	
+	
 	/**
 	 * Filter on the upgrade hook
 	 * Pushes the versions to SORBI
@@ -468,9 +507,10 @@ class SorbiConnect{
 		
 		// if we have versions, push it to SORBI
 		if( $versions ){
-			self::update_versions( $versions );
+			self::update_versions( $versions, true );
 		}
 	}
+	
 	
 	/**
 	 * Add the 'sorbi-connect' meta tag to the head
@@ -482,6 +522,7 @@ class SorbiConnect{
 		printf('<meta name="sorbi-connect" content="%s">', $this->site_key );
 	}
 	
+	
 	/**
 	 * Add some inline styling to the head of wp-admin
 	 * This is to prevent loading additonal css files
@@ -489,14 +530,11 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function sorbi_backend_head(){
-		
-		$show = ($this->site_secret != '') ? 'display:block !important' : '';
-		
+				
 		?>
 		<style>
 		#sorbi_site_key,
 		#sorbi_site_secret{min-width:320px; font-size: 22px; color: #8a8a8a; padding: 7px; }
-		#sorbi_site_secret{ <?php echo $show; ?> }
 		.toplevel_page_sorbi-connect .form-table th{ padding: 0px !important; width: 0px !important; }
 		.sorbi-notice{
 			padding-left: 50px;
@@ -508,6 +546,7 @@ class SorbiConnect{
 			padding: 1em 0 !important;
 			margin: 0px !important;
 		}
+		p.submit{ float: left; margin-right: 10px; padding-top: 0px; }
 		</style>
 		<?php
 	}
@@ -519,13 +558,12 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function sorbi_api_endpoint_v45(){
-		
 		register_rest_route( 'sorbi/v1', '/get_informations/site_key=(?P<site_key>[a-zA-Z0-9-]+)/site_secret=(?P<site_secret>[a-zA-Z0-9-./$]+)', array(
 			'methods'  => WP_REST_Server::READABLE,
 			'callback' => 'sorbi_endpoint'
 		  ) );
-		
 	}
+	
 	
 	/**
 	 * Register SORBI api endpoint < WP 44
@@ -581,6 +619,7 @@ class SorbiConnect{
 		
 	}
 
+	
 	/**
 	 * The validate site key function will post the submitted site key to the SORBI API
 	 * 
@@ -604,10 +643,6 @@ class SorbiConnect{
 		// check if the site_key is set
 		if( (string) $site_key !== '' ){
 			
-			// reset the messages and expiration
-			update_option( $this->sorbi_message_option_name, $this->messages );
-			update_option( $this->site_key_expiration_option_name, false );
-			
 			// set default valid 
 			$valid 			= false;
 			
@@ -624,7 +659,7 @@ class SorbiConnect{
 			if( $file_validation === false ){
 				$file_validation = file_put_contents( $filepath, $filecontent );
 			}
-			
+						
 			// we can use file validation
 			if( $file_validation ){
 				
@@ -638,9 +673,12 @@ class SorbiConnect{
 						'activation_type'		=> 1
 					)
 				);
+				
+			}else{				
+				$this->messages['notices'][] = __("Your uploads folder is not writeable, we have added a metatag to your website to validate again.", SORBI_TD );
 			}
 			
-			// we have a fallback for met-tag validation 
+			// we have a fallback for meta-tag validation 
 			if( !$valid ){
 				$valid = self::sorbi_api_call( 
 					'activate/key',
@@ -663,10 +701,19 @@ class SorbiConnect{
 				
 				// set the success message including expiration
 				if($this->site_secret != ''){
-					$this->messages['success'][] = sprintf( __("Copy the site secret key and")) . ' ' . sprintf('<a href="https://panel.sorbi.com/?tmp_key=%s">'.__('click here!').'</a>', $valid->tmp_key);
+					
+					// Reactivate if the website is still valid
+					if($valid->activated == 1){
+						$this->messages['success'][] = sprintf( __("Welcome to SORBI, your website has been activated! Click %s to see all your websites.", SORBI_TD), '<a href="https://www.sorbi.com" target="_blank" style="color:#000;">'.__('here', SORBI_TD).'</a>');						
+					}else{
+						$this->messages['success'][] = sprintf( __("Copy the site secret key and activate your website on panel.sorbi.com."));						
+					}
 					
 					// update the site_secret
 					update_option( $this->site_secret_option_name, $this->site_secret );
+					update_option( $this->sorbi_message_option_name, $this->messages );
+					update_option( $this->site_key_expiration_option_name, false );
+					
 				}
 								
 			}
@@ -686,6 +733,7 @@ class SorbiConnect{
 	}
 	
 	
+	
 	/**
 	 * To reset credentials
 	 * 
@@ -703,6 +751,7 @@ class SorbiConnect{
 		
 	}
 	
+	
 	/**
 	 * On admin init we check the site key and expiration
 	 * After we set the setting fields
@@ -719,7 +768,7 @@ class SorbiConnect{
 				
 		// if we have no key
 		if( !$this->site_key || (string) $this->site_key == '' ){
-			$this->messages['info'][] = sprintf( __("Please add your SORBI Connect site key. If you don't have a key, <a href='%s' target='_blank'>get one here!</a>", SORBI_TD ), 'https://www.sorbi.com' );
+			$this->messages['info'][] = sprintf( __("Connect your website with SORBI. Get your key, <a href='%s' target='_blank' style='color:#000;'>here!</a>", SORBI_TD ), 'https://www.sorbi.com' );
 		}else{
 			
 			if(isset($_POST['submit'])){
@@ -772,6 +821,7 @@ class SorbiConnect{
 		
 	}
 	
+	
 	/** 
      * Get the site key info text and print its values
 	 *
@@ -796,7 +846,7 @@ class SorbiConnect{
 	 * @return void
      */
 	public function site_secret_callback( $args ){
-			printf('<input type="text" id="%s" name="%s" value="%s" placeholder="%s" style="display:none;" />', $args['name'], $args['name'], ( $this->site_secret ? esc_attr( $this->site_secret ) : '' ), $args['placeholder'] );
+			printf('<input type="text" id="%s" name="%s" value="%s" placeholder="%s" />', $args['name'], $args['name'], ( $this->site_secret ? esc_attr( $this->site_secret ) : '' ), $args['placeholder'] );
 	}
 	
 	/**
@@ -843,7 +893,8 @@ class SorbiConnect{
 		$core_update = 0;
 		
 		// General update information
-		$update_plugins = get_site_transient( 'update_plugins' );        
+		$update_plugins = get_site_transient( 'update_plugins' );
+				
 		if ( ! empty( $update_plugins->response ) )
             $updates['plugins'] = count( $update_plugins->response );
 			
@@ -862,7 +913,7 @@ class SorbiConnect{
 		$update_wordpress = get_core_updates( array('dismissed' => false) );
         if ( ! empty( $update_wordpress ) && ! in_array( $update_wordpress[0]->response, array('development', 'latest') ) )
             $core_update = 1;
-		
+						
 		if( $plugins ){
 						
 			foreach( $plugins as $path => $plugin ){
@@ -873,18 +924,18 @@ class SorbiConnect{
 					'name'		=> $plugin['Name'],
 					'active' 	=> is_plugin_active( $path ),
 					'version' 	=> $plugin['Version'],
-					'update_available' => array_key_exists($path, $plugin_updates)
+					'update_available' => (int) array_key_exists($path, $plugin_updates)
 				);
 			}
 		}
-				
+						
 		// for the core 
 		$core_version = get_bloginfo('version');
 		$versions['core'][ $this->platform ] = array(
 			'name'		=> "WordPress {$core_version}",
 			'active' 	=> true,
 			'version' 	=> $core_version,
-			'update_available' => $core_update
+			'update_available' => (int) $core_update
 		);
 		
 		// for the theme
@@ -896,7 +947,7 @@ class SorbiConnect{
 				'name'		=> $theme['Name'],
 				'active' 	=> ( $current->get( 'Name' ) === $theme['Name'] ),
 				'version' 	=> $theme['Version'],
-				'update_available' => array_key_exists($key, $theme_updates)
+				'update_available' => (int) array_key_exists($key, $theme_updates)
 			);
 		}
 				
@@ -944,13 +995,19 @@ class SorbiConnect{
 		return $versions;
 	}
 	
-	private function update_versions( $versions ){
+	/**
+	 * Afther a plugin has been updated it will send new information to SORBI
+	 * 
+	 * @return void
+	 */
+	private function update_versions( $versions, $updates = false ){
 		
 		// set args
 		$args['site_key'] 		= $this->site_key;
 		$args['site_secret'] 	= $this->site_secret;
 		$args['platform'] 		= $this->platform;
 		$args['versions'] 		= (array) $versions;
+		$args['updates'] 		= $updates;
 		
 		// call the SORBI API
 		$version_call = self::sorbi_api_call( 'versions', $args, 'POST', true );
