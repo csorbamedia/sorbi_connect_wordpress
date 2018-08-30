@@ -19,7 +19,7 @@ Website: <https://www.csorbamedia.com/>
 
 Email: support@csorbamedia.com
 
-##### Installation
+### Installation
 
 FROM YOUR WORDPRESS DASHBOARD
 
