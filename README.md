@@ -4,10 +4,10 @@ The SORBI Connect WordPress Plugin works with SORBI.com to enable you to remotel
 
 ## Table of Contents
 
-- [Feedback](#feedback)
-- [Installation] (#installation)
+- [Feedback](###feedback)
+- [Installation] (####installation)
 
-## Feedback
+### Feedback
 
 There are several ways to get in contact with the SORBI Connect devs:
 
@@ -19,11 +19,7 @@ Website: <https://www.csorbamedia.com/>
 
 Email: support@csorbamedia.com
 
-#### Prerequisites
-
- * Install WordPress > 4.4
-
-#### Installation
+##### Installation
 
 FROM YOUR WORDPRESS DASHBOARD
 
