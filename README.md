@@ -5,6 +5,7 @@ The SORBI Connect WordPress Plugin works with SORBI.com to enable you to remotel
 ## Table of Contents
 
 - [Feedback](#feedback)
+- [Screenshot](#screenshot)
 - [Installation](#installation)
 
 ### Feedback
@@ -18,6 +19,10 @@ Website: <https://www.sorbi.com/>
 Website: <https://www.csorbamedia.com/>
 
 Email: support@csorbamedia.com
+
+### Screenshot
+
+![Screenshot](screenshot.png)
 
 ### Installation
 
