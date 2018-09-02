@@ -59,19 +59,16 @@ function sorbi_endpoint($request){
 		
 		// call the SORBI API
 		$version_call = $sorbi->sorbi_api_call( 'versions', $args, 'POST', true );
-						
+								
 		// loop the results
 		if( $version_call && isset( $version_call->summary ) && count( $version_call->summary ) > 0 ){
-			
-			$return['success']['data'] = $version_call->summary;
-			
+						
 			$site_key = $version_call->site_key;
 			
 			$messages['success'][] = sprintf( __("Your SORBI site key '{$site_key}' is actived.", SORBI_TD ) );
 			
 			// save the messages 
 			update_option( 'sorbi_messages', (array) $messages );
-			
 			
 		}
 		
