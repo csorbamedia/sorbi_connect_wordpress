@@ -118,17 +118,19 @@ class SorbiConnect{
 		update_option('sorbi_unistall', time() );
 	}
 	
+	// Activate SORBI Connect
 	public function activation(){
 		// flush the rewrite rules
 		flush_rewrite_rules();
 	}
-	
+
+	// Deactivate SORBI Connect	
 	public function deactivation(){
 		// flush the rewrite rules
 		flush_rewrite_rules();
 	}
 	
-	// get the systme info 
+	// Get the systme info 
 	public function system_info(){
 		
 		// debug
@@ -773,9 +775,7 @@ class SorbiConnect{
 			
 			if(isset($_POST['submit'])){
 				// we do have a key, if it's expired, we force to auto check if it is valid 
-				if( time() > $this->site_key_expiration ){
-					self::validate_site_key( $this->site_key, false );
-				}
+				self::validate_site_key( $this->site_key, false );
 			}elseif(isset($_POST['reset'])){
 				self::reset_credentials();
 			}
