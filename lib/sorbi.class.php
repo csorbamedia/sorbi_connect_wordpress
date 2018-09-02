@@ -32,7 +32,7 @@ class SorbiConnect{
 	protected $sorbi_last_file_chec_option_name	= 'sorbi_last_file_check_time';
 	
 	public function __construct(){
-		
+				
 		// overwrite date format 
 		$this->dateformat = get_option('date_format', 'Y-m-d');
 		
@@ -108,6 +108,9 @@ class SorbiConnect{
 		// Add API listener for WP > 4.4
 		add_action( 'rest_api_init', array( $this, 'sorbi_api_endpoint_v45' ) );
 		
+		// Add plugin page listener
+		add_action( 'admin_notices', array($this, 'sorbi_retrieve_data'));
+		
 		// register the unistall hook, static for WP > 4.4
 		register_uninstall_hook( SORBI_PLUGIN_FILE, 'self::uninstall' );
 		
@@ -164,6 +167,23 @@ class SorbiConnect{
 		
 		// get the current screen 
 		$this->screen = get_current_screen(); 
+		
+	}
+	
+	/**
+	 * Retrieve data when plugins.php will be hit
+	 *
+	 * @return array
+	 **/
+	
+	public function sorbi_retrieve_data(){
+		
+		// get the current screen 
+		$this->screen = get_current_screen();
+		
+		if($this->screen->base == 'plugins'){
+			$this->after_update();
+		}
 		
 	}
 	
@@ -502,15 +522,28 @@ class SorbiConnect{
 	 *
 	 * @return void
 	 **/
-	public function after_update( $status, $items, $result ){
+	public function after_update(){
 		
-		// try to get all the versions
-		$versions = self::list_versions();
+		// We need to check is site_key and site_secret is in database also
+		$registered_site_key = get_option( 'sorbi_site_key' , false );
+		$registered_site_secret = get_option( 'sorbi_site_secret' , false );
 		
-		// if we have versions, push it to SORBI
-		if( $versions ){
-			self::update_versions( $versions, true );
+		// Our variables to pass to the API
+		$args = array('site_key' => $registered_site_key, 'site_secret' => $registered_site_secret);
+				
+		// call the SORBI API
+		$version_call = self::sorbi_api_call( 'update/versions', $args, 'POST', true );
+					
+		// We might want to show a notification after the call
+		if(isset($version_call->error)){
+			$message = __('We could not send new information to SORBI please contact the support team if this message keeps coming back.', SORBI_TD);
+			echo sprintf('<div class="sorbi-notice notice notice-%s is-dismissible"><p>%s</p></div>', 'error', $message );
 		}
+		//else{
+		//	$message = __('We have send new information to SORBI.', SORBI_TD);
+		//	echo sprintf('<div class="sorbi-notice notice notice-%s is-dismissible"><p>%s</p></div>', 'success', $message );
+		//}
+		
 	}
 	
 	
@@ -560,12 +593,11 @@ class SorbiConnect{
 	 * @return void
 	 **/
 	public function sorbi_api_endpoint_v45(){
-		register_rest_route( 'sorbi/v1', '/get_informations/site_key=(?P<site_key>[a-zA-Z0-9-]+)/site_secret=(?P<site_secret>[a-zA-Z0-9-./$]+)', array(
+		register_rest_route( 'sorbi/v2', '/information/', array(
 			'methods'  => WP_REST_Server::READABLE,
 			'callback' => 'sorbi_endpoint'
 		  ) );
 	}
-	
 	
 	/**
 	 * Register SORBI api endpoint < WP 44
@@ -922,7 +954,7 @@ class SorbiConnect{
 				
 				$versions['plugin'][ $key ] = array(
 					'name'		=> $plugin['Name'],
-					'active' 	=> is_plugin_active( $path ),
+					'active' 	=> (int) is_plugin_active( $path ),
 					'version' 	=> $plugin['Version'],
 					'update_available' => (int) array_key_exists($path, $plugin_updates)
 				);
@@ -933,7 +965,7 @@ class SorbiConnect{
 		$core_version = get_bloginfo('version');
 		$versions['core'][ $this->platform ] = array(
 			'name'		=> "WordPress {$core_version}",
-			'active' 	=> true,
+			'active' 	=> 1,
 			'version' 	=> $core_version,
 			'update_available' => (int) $core_update
 		);
@@ -945,7 +977,7 @@ class SorbiConnect{
 		foreach( $themes as $key => $theme ){
 			$versions['theme'][ $key ] = array(
 				'name'		=> $theme['Name'],
-				'active' 	=> ( $current->get( 'Name' ) === $theme['Name'] ),
+				'active' 	=> (int) ( $current->get( 'Name' ) === $theme['Name'] ),
 				'version' 	=> $theme['Version'],
 				'update_available' => (int) array_key_exists($key, $theme_updates)
 			);
@@ -1056,15 +1088,16 @@ class SorbiConnect{
 			'httpversion' 	=> '1.0',
 			'blocking'    	=> true,
 			'headers'     	=> array(),
+			'redirection' 	=> 5,
 			'body' 			=> $args
 		);
 						
 		// construct api url
 		$url = sprintf( $this->api_uri, $this->version, $action );
-		
+				
 		// execute request
 		$response = wp_remote_post( $url, $call );
-				
+						
 		// wp error check
 		if( is_wp_error( $response ) ){
 			if( !$silent ) $this->messages['error'][] = $response->get_error_message();

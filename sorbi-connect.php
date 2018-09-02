@@ -46,7 +46,7 @@ function sorbi_endpoint($request){
 		
 	// System information
 	$system = $sorbi->system_info();
-	
+		
 	// Set our Args for external call with SORBI
 	$args['site_key'] 		= wp_kses_data($request['site_key']);
 	$args['site_secret'] 	= wp_kses_data($request['site_secret']);
