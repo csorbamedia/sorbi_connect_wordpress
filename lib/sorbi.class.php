@@ -1039,15 +1039,6 @@ class SorbiConnect{
 			
 			
         </div>
-		<pre>
-        <?php
-		
-		//self::scan();
-		//$scan = self::check_file_changes();
-		//var_dump( $scan );
-		
-		?>
-		</pre>
 		<?php
 	}
 	
