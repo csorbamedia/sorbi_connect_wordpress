@@ -181,7 +181,7 @@ class SorbiConnect{
 		// get the current screen 
 		$this->screen = get_current_screen();
 		
-		if($this->screen->base == 'plugins'){
+		if($this->screen->base == 'plugins' || $this->screen->update-core == 'update-core'){
 			$this->after_update();
 		}
 		
