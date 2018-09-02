@@ -6,7 +6,7 @@
   Author: Yoeri Dekker
   Author URI: http://www.csorbamedia.com/
   Text Domain: sorbi-connect
-  Version: 1.0.0
+  Version: 1.0.1
 */
 
 // define global variables
