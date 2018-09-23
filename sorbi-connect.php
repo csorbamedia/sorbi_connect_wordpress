@@ -10,7 +10,6 @@
 */
 
 // define global variables
-define('DONOTCACHEPAGE', true);
 define('SORBI_PLUGIN_FILE', __FILE__);
 define("SORBI_PATH",plugin_dir_path(__FILE__) );
 define("SORBI_URL",	plugin_dir_url(__FILE__) );
